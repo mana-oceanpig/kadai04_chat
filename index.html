@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>LINE風CHAT</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<link rel="stylesheet" href="/Firebase-RealtimeDatabase/css/reset.css">
+<link rel="stylesheet" href="/Firebase-RealtimeDatabase/css/style.css">
+<link href="https://fonts.googleapis.com/earlyaccess/hannari.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- コンテンツ表示画面 -->
+
+<div class="box">
+    <header id="title">ねこになれるチャット</header>
+    <div class="wrapper">
+        <div id="output" style="display: flex; flex-direction: column; overflow: auto; height: 500px;">
+            <ul id="chat-area">
+            <li>
+            <div class="balloon balloon-r"><p class="say say-r">こんにちは</p></div>
+            </li>
+            <li>
+            <div class="balloon"><p class="say">ここでは猫になれます。</p></div>
+            <p class="say">好きなことを話しましょう</p>
+            </li>
+            </ul>
+        </div>
+        <div>おなまえ<input type="text" id="uname"></div>
+        <textarea id="text" cols="25" rows="3"></textarea>
+        <button id="send">送信</button>
+    </div>
+    
+</div>
+<!--/ コンテンツ表示画面 -->
+
+<!--** 以下Firebase **-->
+<script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getDatabase, ref, push, set, update, remove, onChildAdded, onChildChanged, onChildRemoved } //使う機能を指定
+    from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js"; //インポート元ライブラリを指定
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyBNUmXC-Av0tA1JRrtdgEeLcFczLhznZYY",
+        authDomain: "chat-gs004.firebaseapp.com",
+        projectId: "chat-gs004",
+        storageBucket: "chat-gs004.appspot.com",
+        messagingSenderId: "1035158653589",
+        appId: "1:1035158653589:web:82bd3a4e78fc3b28b6299c"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app); //RealTimeDBに接続する
+    const dbRef = ref(db,"chat"); //DB内の階層を指定する
+
+    //送信
+    $("#send").on("click",function(){ //クリックしたら
+        const msg = { //オブジェクトに入れる
+            uname : $("#uname").val(), 
+            text : $("#text").val(),
+        }
+        const newPostRef = push(dbRef); //チャットにはユニークキーを生成する過程が重要
+        set(newPostRef,msg);
+    });
+
+    //受信
+    onChildAdded(dbRef,function(data){ //DBにデータに入ってきたら
+        const msg = data.val(); //オブジェクト変数を展開する関数
+        const key = data.key; //ユニークKEYは削除・更新の指定に必須！
+        let h = '<ul id="' + key + '">'; //keyは削除のために必要
+            h += '<li class="balloon balloon-r">';
+            h += msg.uname;
+            h += '<span>ねこ</span>';
+            h += '</li>';
+            h += '<li class="say say-r">';
+            h += '<span contentEditable="true" id="' + key + '_update">' + msg.text + '</span>'; //メッセージ更新されたらid名を変更
+            h += '<span>ですにゃ</span>';
+            h += '<span class="remove" data-key="' + key +'">🚮</span>';
+            h += '<span class="update" data-key="' + key +'">🆙</span>';
+            h += '</li>';
+            h += '</ul>';
+            $("#output").append(h);
+    });
+
+    //削除ボタンのイベント
+    $("#output").on("click", ".remove", function(){ //outputの中のremoveクラスを監視する
+        const key = $(this).attr("data-key"); //thisとは押した場所だけを指定する、attrは属性のこと、属性を指定できる
+        const remove_item = ref(db,"chat/" + key); //データベースの中のユニークキー、場所を指定する関数
+        remove(remove_item); //Firebaseデータ削除関数
+    });
+
+    //更新ボタンのイベント
+    $("#output").on("click", ".update", function (){ //ouputの中のupdateクラスを監視する
+        const key = $(this).attr("data-key");
+        update(ref(db, "chat/"+key), {
+            text: $("#" + key + '_update').html()
+    });
+
+});
+
+    //削除処理がFirebase側で実行されたらイベント発生
+
+    onChildRemoved(dbRef, (data) => {
+        $("#" + data.key).remove(); //対象を削除する関数
+    });
+
+    //更新処理がFirebase側で実行されたらイベント発生
+    onChildChanged(dbRef, (data) => {
+        $("#"+data.key+'_update').html(data.val().text);
+        $("#"+data.key+'_update').fadeOut(800).fadeIn(800);
+    });
+
+</script>
+
+
+</body>
+</html>
